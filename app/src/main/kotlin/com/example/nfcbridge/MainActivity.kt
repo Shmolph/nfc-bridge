@@ -154,21 +154,25 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
                 val line = input.readLine() ?: break
                 val cmd = line.trim()
                 if (cmd.isEmpty()) continue
-                val reply: String = when {
-                    cmd.startsWith("AUTH ", ignoreCase = true) -> {
-                        if (cmd.substring(5).trim() == pin) { authed = true; "OK" }
-                        else "ERR bad pin"
+                val reply: String = try {
+                    when {
+                        cmd.startsWith("AUTH ", ignoreCase = true) -> {
+                            if (cmd.substring(5).trim() == pin) { authed = true; "OK" }
+                            else "ERR bad pin"
+                        }
+                        !authed -> "ERR send AUTH <pin> first"
+                        cmd.equals("PING", ignoreCase = true) -> "OK"
+                        cmd.equals("INFO", ignoreCase = true) -> info()
+                        else -> run(cmd)
                     }
-                    !authed -> "ERR send AUTH <pin> first"
-                    cmd.equals("PING", ignoreCase = true) -> "OK"
-                    cmd.equals("INFO", ignoreCase = true) -> info()
-                    else -> run(cmd)
+                } catch (e: Exception) {
+                    "ERR internal ${e.javaClass.simpleName}: ${e.message}"
                 }
                 log("> $cmd\n< $reply")
                 out.println(reply)
             }
-        } catch (e: IOException) {
-            // client went away
+        } catch (e: Exception) {
+            log("Client error: ${e.javaClass.simpleName}: ${e.message}")
         } finally {
             try { s.close() } catch (_: IOException) {}
             clientStatus = "No computer connected."
@@ -202,6 +206,8 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
                 "ERR tag lost - re-tap the card"
             } catch (e: IOException) {
                 "ERR ${e.message ?: "transceive failed"} (a NAK often means locked page or bad command)"
+            } catch (e: Exception) {
+                "ERR ${e.javaClass.simpleName}: ${e.message}"
             }
         }
     }
